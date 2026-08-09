@@ -1,0 +1,140 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 VIKINGYFY
+
+#单包编译：手动输入包名，仅编译该包及其依赖，上传 .ipk 产物，无需重新刷机
+name: PKG-BUILD
+
+on:
+  workflow_dispatch:
+    inputs:
+      PACKAGE:
+        description: '要编译的软件包名（如 luci-app-lucky / lucky / podman / luci-app-podman / luci-app-gecoosac），需在 Packages.sh 克隆列表或软件源(feeds)中存在，不要带空格'
+        required: true
+        type: string
+
+permissions: write-all
+
+env:
+  GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+  WRT_CONFIG: IPQ60XX-WIFI-YES
+  WRT_REPO: https://github.com/VIKINGYFY/immortalwrt.git
+  WRT_BRANCH: main
+  WRT_INFO: VIKINGYFY
+
+jobs:
+  pkgbuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Projects
+        uses: actions/checkout@main
+
+      - name: Initialization Environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo -E apt -yqq update
+          sudo -E apt -yqq full-upgrade
+          sudo -E apt -yqq autoremove --purge
+          sudo -E apt -yqq autoclean
+          sudo -E apt -yqq clean
+          sudo -E apt -yqq install dos2unix libfuse-dev
+          sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+          sudo -E systemctl daemon-reload
+
+      - name: Clone Code
+        run: |
+          git clone --depth=1 --single-branch --branch $WRT_BRANCH $WRT_REPO ./wrt/
+
+          cd ./wrt/ && echo "WRT_HASH=$(git log -1 --pretty=format:'%h')" >> $GITHUB_ENV
+
+          # GitHub Action 移除国内下载源
+          PROJECT_MIRRORS_FILE="./scripts/projectsmirrors.json"
+          if [ -f "$PROJECT_MIRRORS_FILE" ]; then
+            sed -i '/.cn\//d; /tencent/d; /aliyun/d' "$PROJECT_MIRRORS_FILE"
+          fi
+
+      - name: Check Scripts
+        run: |
+          find ./ -maxdepth 3 -type f -iregex ".*\(txt\|sh\)$" -exec dos2unix {} \; -exec chmod +x {} \;
+
+      #复用主编译(NN6000)的缓存：ccache + 工具链（含Go），第二次起显著加速
+      - name: Check Caches
+        uses: actions/cache@main
+        with:
+          key: ${{env.WRT_CONFIG}}-${{env.WRT_INFO}}-${{env.WRT_HASH}}
+          restore-keys: ${{env.WRT_CONFIG}}-${{env.WRT_INFO}}
+          path: |
+            ./wrt/.ccache
+            ./wrt/staging_dir/host*
+            ./wrt/staging_dir/tool*
+
+      - name: Update Feeds
+        run: |
+          cd ./wrt/
+
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Custom Packages
+        run: |
+          cd ./wrt/package/
+
+          $GITHUB_WORKSPACE/Scripts/Packages.sh
+          $GITHUB_WORKSPACE/Scripts/Handles.sh
+
+      - name: Custom Settings
+        run: |
+          cd ./wrt/
+
+          cat $GITHUB_WORKSPACE/Config/$WRT_CONFIG.txt $GITHUB_WORKSPACE/Config/GENERAL.txt >> .config
+
+          make defconfig -j$(nproc)
+
+      - name: Resolve Package
+        run: |
+          WRT_PACKAGE=$(echo "${{inputs.PACKAGE}}" | xargs)
+          if [ -z "$WRT_PACKAGE" ]; then
+            echo "错误：包名不能为空！"
+            exit 1
+          fi
+
+          PKG_DIR="$(find package -maxdepth 4 -type d -name "$WRT_PACKAGE" | head -1)"
+          if [ -z "$PKG_DIR" ]; then
+            echo "错误：未找到软件包 $WRT_PACKAGE！请确认它在 Packages.sh 克隆列表或软件源(feeds)中"
+            echo "当前可用参考：luci-app-lucky / lucky / luci-app-podman / podman / luci-app-gecoosac / luci-app-wolultra / luci-app-mini-diskmanager / luci-app-partexp / luci-app-ddns-go 等"
+            exit 1
+          fi
+
+          echo "WRT_PACKAGE=$WRT_PACKAGE" >> $GITHUB_ENV
+          echo "PKG_DIR=$PKG_DIR" >> $GITHUB_ENV
+          echo "已定位软件包目录: $PKG_DIR"
+
+      - name: Download Packages
+        run: |
+          cd ./wrt/
+
+          make $PKG_DIR/download -j$(nproc) || true
+
+      - name: Compile Package
+        run: |
+          cd ./wrt/
+
+          make $PKG_DIR/compile -j$(nproc) || make $PKG_DIR/compile -j1 V=s
+
+      - name: List Output
+        run: |
+          cd ./wrt/
+
+          echo "===== 目标包 .ipk ====="
+          find ./bin/packages/ -type f -iname "*$WRT_PACKAGE*.ipk"
+          echo "===== 依赖包 .ipk（按时间取前10）====="
+          find ./bin/packages/ -type f -name "*.ipk" -printf '%T@ %p\n' | sort -rn | head -10 | cut -d' ' -f2-
+
+      - name: Upload IPK
+        uses: actions/upload-artifact@main
+        with:
+          name: ${{inputs.PACKAGE}}-ipk
+          path: |
+            ./wrt/bin/packages/**/*.ipk
+            ./wrt/bin/targets/*/*/*.ipk
+          if-no-files-found: error
