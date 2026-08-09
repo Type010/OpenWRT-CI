@@ -82,14 +82,6 @@ jobs:
           $GITHUB_WORKSPACE/Scripts/Packages.sh
           $GITHUB_WORKSPACE/Scripts/Handles.sh
 
-      - name: Custom Settings
-        run: |
-          cd ./wrt/
-
-          cat $GITHUB_WORKSPACE/Config/$WRT_CONFIG.txt $GITHUB_WORKSPACE/Config/GENERAL.txt >> .config
-
-          make defconfig -j$(nproc)
-
       - name: Resolve Package
         run: |
           cd ./wrt/
@@ -110,6 +102,16 @@ jobs:
           echo "WRT_PACKAGE=$WRT_PACKAGE" >> $GITHUB_ENV
           echo "PKG_DIR=$PKG_DIR" >> $GITHUB_ENV
           echo "已定位软件包目录: $PKG_DIR"
+
+      - name: Custom Settings
+        run: |
+          cd ./wrt/
+
+          # 拼接配置并把目标包写入选中（选中后 compile 才会生成其 .apk）
+          cat $GITHUB_WORKSPACE/Config/$WRT_CONFIG.txt $GITHUB_WORKSPACE/Config/GENERAL.txt >> .config
+          echo "CONFIG_PACKAGE_$WRT_PACKAGE=y" >> .config
+
+          make defconfig -j$(nproc)
 
       - name: Download Packages
         run: |
