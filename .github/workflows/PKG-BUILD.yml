@@ -121,8 +121,8 @@ jobs:
         run: |
           cd ./wrt/
 
-          #install 目标会同时编译并打包生成 .apk/.ipk（compile 只编译不打包）
-          make $PKG_DIR/install -j$(nproc) || make $PKG_DIR/install -j1 V=s
+          #compile 目标会编译并在 .built 阶段打包生成 .apk/.ipk（install 目标对未选中包注册不稳定）
+          make $PKG_DIR/compile -j$(nproc) || make $PKG_DIR/compile -j1 V=s
 
       - name: List Output
         run: |
