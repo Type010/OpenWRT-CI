@@ -81,7 +81,12 @@ UPDATE_PACKAGE "timecontrol" "sirpdboy/luci-app-timecontrol" "main"
 UPDATE_PACKAGE "viking" "VIKINGYFY/packages" "main" "" "axonhub gecoosac sing-box luci-app-homeproxy luci-app-timewol luci-app-wolplus luci-app-wolultra"
 UPDATE_PACKAGE "vnt" "lmq8267/luci-app-vnt" "main"
 UPDATE_PACKAGE "luci-app-podman" "Zerogiven-OpenWRT-Packages/luci-app-podman" "main"
-UPDATE_PACKAGE "lucky" "sirpdboy/luci-app-lucky" "main" "pkg"
+#lucky：仓库名与包名同名（luci-app-lucky），UPDATE_PACKAGE 的 pkg 模式会因目录冲突误删，
+#因此手动克隆到临时目录再拆分出 lucky 与 luci-app-lucky
+git clone --depth=1 --single-branch --branch main https://github.com/sirpdboy/luci-app-lucky.git ./lucky-src/
+cp -rf ./lucky-src/lucky ./lucky
+cp -rf ./lucky-src/luci-app-lucky ./luci-app-lucky
+rm -rf ./lucky-src/
 
 #更新软件包版本
 UPDATE_VERSION() {
