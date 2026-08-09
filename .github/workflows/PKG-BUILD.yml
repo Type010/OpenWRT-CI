@@ -92,6 +92,8 @@ jobs:
 
       - name: Resolve Package
         run: |
+          cd ./wrt/
+
           WRT_PACKAGE=$(echo "${{inputs.PACKAGE}}" | xargs)
           if [ -z "$WRT_PACKAGE" ]; then
             echo "错误：包名不能为空！"
