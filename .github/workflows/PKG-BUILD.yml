@@ -111,6 +111,21 @@ jobs:
           echo "PKG_DIR=$PKG_DIR" >> $GITHUB_ENV
           echo "已定位软件包目录: $PKG_DIR"
 
+      - name: Select Package
+        run: |
+          cd ./wrt/
+
+          # 将目标包写入配置并重新 defconfig，确保包被选中（未选中的包 install 不生成 .apk）
+          echo "CONFIG_PACKAGE_$WRT_PACKAGE=y" >> .config
+          make defconfig -j$(nproc)
+
+          echo "===== 元数据检查 ====="
+          if grep -q "$WRT_PACKAGE" tmp/info/.packageinfo 2>/dev/null; then
+            echo "✓ 包已注册到构建系统: $WRT_PACKAGE"
+          else
+            echo "⚠ 包未在 tmp/info/.packageinfo 中找到！"
+          fi
+
       - name: Download Packages
         run: |
           cd ./wrt/
