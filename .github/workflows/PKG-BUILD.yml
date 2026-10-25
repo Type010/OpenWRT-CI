@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       PACKAGE:
-        description: '要编译的软件包名（如 luci-app-lucky / lucky / podman / luci-app-podman / luci-app-gecoosac），需在 Packages.sh 克隆列表或软件源(feeds)中存在，不要带空格'
+        description: '要编译的软件包名（如 luci-app-natmapt / podman / luci-app-podman / luci-app-gecoosac），需在 Packages.sh 克隆列表或软件源(feeds)中存在，不要带空格'
         required: true
         type: string
 
@@ -58,11 +58,12 @@ jobs:
           find ./ -maxdepth 3 -type f -iregex ".*\(txt\|sh\)$" -exec dos2unix {} \; -exec chmod +x {} \;
 
       #复用主编译(NN6000)的缓存：ccache + 工具链（含Go），第二次起显著加速
+      #缓存键与新版 WRT-CORE 一致：wrt-源码-分支-目标子目标
       - name: Check Caches
         uses: actions/cache@main
         with:
-          key: ${{env.WRT_CONFIG}}-${{env.WRT_INFO}}-${{env.WRT_HASH}}
-          restore-keys: ${{env.WRT_CONFIG}}-${{env.WRT_INFO}}
+          key: wrt-VIKINGYFY-immortalwrt-main-qualcommax-ipq60xx-${{env.WRT_HASH}}
+          restore-keys: wrt-VIKINGYFY-immortalwrt-main-qualcommax-ipq60xx-
           path: |
             ./wrt/.ccache
             ./wrt/staging_dir/host*
@@ -77,7 +78,7 @@ jobs:
 
       - name: Custom Packages
         run: |
-          cd ./wrt/package/
+          cd ./wrt/
 
           $GITHUB_WORKSPACE/Scripts/Packages.sh
           $GITHUB_WORKSPACE/Scripts/Handles.sh
@@ -95,7 +96,7 @@ jobs:
           PKG_DIR="$(find package -maxdepth 4 -type d -name "$WRT_PACKAGE" | head -1)"
           if [ -z "$PKG_DIR" ]; then
             echo "错误：未找到软件包 $WRT_PACKAGE！请确认它在 Packages.sh 克隆列表或软件源(feeds)中"
-            echo "当前可用参考：luci-app-lucky / lucky / luci-app-podman / podman / luci-app-gecoosac / luci-app-wolultra / luci-app-mini-diskmanager / luci-app-partexp / luci-app-ddns-go 等"
+            echo "当前可用参考：luci-app-natmapt / podman / luci-app-podman / luci-app-gecoosac / luci-app-wolultra / luci-app-mini-diskmanager / luci-app-partexp / luci-app-ddns-go 等"
             exit 1
           fi
 
