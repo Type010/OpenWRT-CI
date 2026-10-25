@@ -18,7 +18,7 @@ env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
   WRT_CONFIG: IPQ60XX-WIFI-YES
   WRT_REPO: https://github.com/VIKINGYFY/immortalwrt.git
-  WRT_BRANCH: main
+  WRT_BRANCH: owrt
   WRT_INFO: VIKINGYFY
 
 jobs:
@@ -62,8 +62,8 @@ jobs:
       - name: Check Caches
         uses: actions/cache@main
         with:
-          key: wrt-VIKINGYFY-immortalwrt-main-qualcommax-ipq60xx-${{env.WRT_HASH}}
-          restore-keys: wrt-VIKINGYFY-immortalwrt-main-qualcommax-ipq60xx-
+          key: wrt-VIKINGYFY-immortalwrt-owrt-qualcommax-ipq60xx-${{env.WRT_HASH}}
+          restore-keys: wrt-VIKINGYFY-immortalwrt-owrt-qualcommax-ipq60xx-
           path: |
             ./wrt/.ccache
             ./wrt/staging_dir/host*
